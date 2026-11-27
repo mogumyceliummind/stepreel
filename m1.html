@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>stepreel · M1 格式實測</title>
+  </head>
+  <body>
+    <header>
+      <h1>stepreel <small>M1 格式實測</small></h1>
+      <p class="hint">錄一段,或選一個影片檔,同一段輸出成各種格式,比較大小與畫質。所有處理都在這個瀏覽器裡,不會上傳。</p>
+    </header>
+
+    <section id="record">
+      <h2>1. 錄一段</h2>
+      <div class="row">
+        <button id="pick">選畫面</button>
+        <label>錄製格式 <select id="mime"></select></label>
+        <label>錄製位元率 <select id="bitrate">
+          <option value="2500000">2.5 Mbps</option>
+          <option value="6000000" selected>6 Mbps</option>
+          <option value="12000000">12 Mbps</option>
+        </select></label>
+        <label>錄製格率 <select id="rec-fps">
+          <option value="30" selected>30 fps</option>
+          <option value="60">60 fps</option>
+        </select></label>
+        <label>錄製放大 <select id="rec-scale">
+          <option value="1" selected>1×</option>
+          <option value="2">2×(顏色、銳利度較好)</option>
+        </select></label>
+        <button id="rec" disabled>開始錄影</button>
+        <span id="rec-state"></span>
+      </div>
+      <p class="hint">選好畫面後在下方預覽上拖拉框選範圍;不框選就錄整個畫面。錄製放大 2× 時影片存成兩倍尺寸,結果區縮回原尺寸顯示;動圖縮放以原尺寸為 100%。</p>
+      <div id="stage" hidden>
+        <video id="preview" muted playsinline></video>
+        <div id="crop-box" hidden></div>
+      </div>
+      <p id="crop-info" class="hint"></p>
+      <details>
+        <summary>這個瀏覽器的 MediaRecorder 支援哪些格式</summary>
+        <ul id="support"></ul>
+      </details>
+      <div class="row">
+        <label>或選一個影片檔 <input id="file" type="file" accept="video/*" /></label>
+      </div>
+    </section>
+
+    <section id="convert" hidden>
+      <h2>2. 轉檔</h2>
+      <p id="source-info"></p>
+      <div class="row">
+        <label>影片畫質 <select id="quality">
+          <option value="medium">中</option>
+          <option value="high" selected>高</option>
+        </select></label>
+        <label>動圖格率 <select id="fps">
+          <option value="10">10 fps</option>
+          <option value="15" selected>15 fps</option>
+          <option value="24">24 fps</option>
+          <option value="30">30 fps</option>
+        </select></label>
+        <label>動圖縮放 <select id="scale">
+          <option value="1" selected>100%</option>
+          <option value="0.75">75%</option>
+          <option value="0.5">50%</option>
+        </select></label>
+        <label>WebP 品質 <select id="webp-q">
+          <option value="0.6">60</option>
+          <option value="0.8" selected>80</option>
+          <option value="0.95">95</option>
+        </select></label>
+        <button id="run">全部轉檔</button>
+        <span id="run-state"></span>
+      </div>
+      <div id="results"></div>
+      <div class="row">
+        <button id="copy" disabled>複製結果(Markdown)</button>
+      </div>
+      <pre id="md" hidden></pre>
+    </section>
+
+    <script type="module" src="/src/m1.ts"></script>
+  </body>
+</html>

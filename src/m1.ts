@@ -1,4 +1,4 @@
-// M1 格式實測頁(D-0008 第 7 點)。正式的錄製頁之後在這個基礎上做。
+// M1 格式實測頁(D-0008 第 7 點)。錄製頁在 index.html(D-0013 第 4 點),這頁留給補測。
 
 import './style.css';
 import { Recorder, evenRect, pickScreen, recorderSupport, setFrameRate, type Rect } from './capture';

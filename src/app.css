@@ -1,0 +1,142 @@
+/* 錄製頁(index.html)專用;共用的顏色與按鈕在 style.css */
+
+button.secondary {
+  background: transparent;
+  color: var(--accent);
+}
+button.small {
+  padding: 2px 8px;
+  font-size: 0.85em;
+}
+input[type='text'],
+input[type='number'] {
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+}
+input[type='number'] {
+  width: 4em;
+}
+.file-btn {
+  display: inline-block;
+  padding: 6px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.file-btn input {
+  display: none;
+}
+#notes {
+  color: var(--error);
+  font-size: 0.9em;
+}
+
+#steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+.step.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.step.target {
+  border-style: dashed;
+  border-color: #ff3d00;
+}
+.step.insert-after {
+  border-bottom: 3px solid #ff3d00;
+}
+.step.insert-before {
+  border-top: 3px solid #ff3d00;
+}
+.step.dragging {
+  opacity: 0.4;
+}
+.step.drop-before {
+  box-shadow: 0 -3px 0 var(--accent);
+}
+.step.drop-after {
+  box-shadow: 0 3px 0 var(--accent);
+}
+.step .num {
+  font-weight: bold;
+  min-width: 1.6em;
+  text-align: center;
+  font-size: 1.2em;
+}
+.step .thumb {
+  width: 120px;
+  height: 68px;
+  object-fit: contain;
+  background: #000;
+  border-radius: 4px;
+}
+.step .info {
+  flex: 1;
+  min-width: 12em;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+.step .actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+#editor-video {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  background: #000;
+}
+#timeline {
+  position: relative;
+  height: 28px;
+  margin: 12px 10px;
+  background: var(--line);
+  border-radius: 4px;
+  touch-action: none;
+}
+#timeline-range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--accent);
+  opacity: 0.35;
+}
+.handle {
+  position: absolute;
+  top: -4px;
+  width: 14px;
+  height: 36px;
+  margin-left: -7px;
+  background: var(--accent);
+  border-radius: 4px;
+  cursor: ew-resize;
+}
+.handle:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+footer {
+  margin-top: 24px;
+}
