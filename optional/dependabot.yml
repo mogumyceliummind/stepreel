@@ -1,0 +1,52 @@
+# Dependabot 版本更新。
+# 漏洞警示與安全更新在 repo 設定開啟,不受這裡的 cooldown 影響:有修正版就立刻開 PR。
+# 版本更新:每週一次;新版本發布後等一段時間才開 PR,次版號與修訂版號合併成一個 PR。
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 7
+    groups:
+      frontend-minor-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore(deps)
+
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 7
+    groups:
+      backend-minor-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore(deps)
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      # 主版號也合併成一個 PR:各 action 分開升級時,workflow 檔裡相鄰的行會互相衝突
+      actions:
+        applies-to: version-updates
+        update-types: [major, minor, patch]
+    commit-message:
+      prefix: chore(ci)

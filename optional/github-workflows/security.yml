@@ -1,0 +1,56 @@
+# 安全檢查:依賴套件的已知漏洞、誤 commit 的金鑰。
+# 任何一項失敗都不應合併。
+name: security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # 每週一 01:00 UTC 重跑:沒有新 commit 時,新公布的漏洞也能被發現
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-deps:
+    name: 前端正式依賴(npm audit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      # 只檢查會打包給使用者的正式依賴;開發工具的漏洞另外追蹤
+      - run: npm audit --omit=dev --audit-level=high
+
+  backend-deps:
+    name: 後端依賴(pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      # 依賴由 uv.lock 鎖定;匯出成 requirements 格式給 pip-audit 檢查
+      - run: pip install uv==0.13.7 pip-audit==2.10.1
+      - run: uv export --frozen --all-groups --no-emit-project --no-hashes -o /tmp/requirements.txt
+        working-directory: backend
+      - run: pip-audit -r /tmp/requirements.txt
+
+  secrets:
+    name: 金鑰掃描(gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # 掃描完整 git 歷史
+      # 用官方映像而不是 gitleaks-action:後者在 Organization 的 repo 需要授權金鑰
+      - run: >-
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1
+          git /repo --redact --no-banner -v
