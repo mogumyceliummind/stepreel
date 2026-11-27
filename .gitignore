@@ -1,0 +1,25 @@
+# 機密(CLAUDE.md §4):Token、API Key、密鑰全走 .env,不進 git
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Claude Code 的個人本機設定(共用設定與 .claude/skills/ 要進 git)
+.claude/settings.local.json
+# 每人自建,用來自動載入自己的交接檔(D-0001)
+CLAUDE.local.md
+
+# 作業系統與編輯器
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# 記錄與暫存
+*.log
+tmp/
+temp/
+

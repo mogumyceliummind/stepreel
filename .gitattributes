@@ -1,0 +1,14 @@
+# 行尾一律 LF(CLAUDE.md §3)
+* text=auto eol=lf
+
+# 二進位檔不做行尾轉換
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.xlsx binary
+*.docx binary
+*.pptx binary

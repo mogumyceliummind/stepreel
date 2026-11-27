@@ -1,0 +1,11 @@
+# 個人設定(複製成 CLAUDE.local.md,不進 git,見 D-0001)
+
+目前使用者:<名字>
+
+- 命令列:<例:Windows cmd / PowerShell / bash>。給我的指令一律寫成這個語法。
+- (選用)git 指令寫法偏好:<例:一律 `git -C "<repo 路徑>" <子指令>`>
+- (選用)**長期授權 push 與開 PR**:Claude 可以 push 任務分支、用 `gh pr create` 開 PR,不必每次詢問(`ship` 第 5 步)。仍不 push 主分支、不合併 PR(D-0004)。
+- (選用)`after-merge` 的指令由 Claude 自己執行,不必給我指令。
+- (選用)個人收尾 skill:<名稱,不得與共用 skill 同名>
+
+@docs/handoff/<名字>.md
