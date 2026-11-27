@@ -18,7 +18,7 @@ Visy · 2026-11-27
 
 - 錄製頁在首頁 `index.html`,M1 實測頁搬到 `m1.html`。功能:選畫面、框選、一步錄一段、重錄、刪除、排序(拖拉、↑ ↓)、插入、修剪頭尾、匯出匯入 zip。
 - 錄好一段就轉成 H.264 MP4 加海報 JPEG,記憶體裡只存這一份。
-- 只用合成畫面(canvas)驗證過;真實螢幕錄影還沒測(`docs/PENDING.md` §1)。
+- Visy 2026-11-27 用 Chrome、Edge 真實錄影實測通過(已驗收)。這個結果寫在 `feat/recorder-autosave` 分支的 commit 裡,還沒進 `main`:**下一個任務直接在這條分支做**,一起送 PR。
 
 ## 待辦(依順序)
 
@@ -31,7 +31,7 @@ Visy · 2026-11-27
 
 | 等誰 | 做什麼 |
 |---|---|
-| Visy | 用 Chrome、Edge 實際錄幾步、匯出再匯入(`docs/PENDING.md` §1);確認 D-0001 ~ D-0006;設定 `main` 的 ruleset(Q-3) |
+| Visy | 確認 D-0001 ~ D-0006;設定 `main` 的 ruleset(Q-3) |
 
 ## 接手時容易漏掉的事
 
