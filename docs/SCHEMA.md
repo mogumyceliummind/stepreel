@@ -88,3 +88,13 @@
 格式已定版,下面只影響播放元件與轉檔的做法,不影響欄位:
 
 - `trim` 用 `currentTime` 控制 MP4 起訖在 Chrome、Edge、Safari 是否夠準、循環時會不會閃。在播放元件的任務實機驗證;不夠準先在播放元件裡處理,仍不行才寫新決策改成匯出時重新編碼(會推翻 D-0009 第 5 點)。
+
+## 7. 錄製頁的暫存(IndexedDB)
+
+不是套件,只存在錄製頁所在的瀏覽器(D-0014)。內容就是套件,改步驟清單格式時這裡一起處理。
+
+- 資料庫 `stepreel`(資料庫版本 1),兩個 object store:
+  - `meta`:鍵 `draft`,值 `{ kind: "stepreel-draft", draftVersion: 1, savedAt: <毫秒>, manifest: <步驟清單> }`
+  - `blobs`:鍵是步驟清單裡的路徑,值是 Blob
+- `manifest` 是版本 1 的步驟清單(§2),只有路徑改成 `<id>/video.mp4`、`<id>/poster.jpg`(仍符合 §3)。
+- 復原時用匯入 zip 的同一套驗證。`draftVersion` 比程式新:不能復原,只能丟棄或留著。之後改暫存的外層要升 `draftVersion`;改步驟清單時照 §4 升 `version`。

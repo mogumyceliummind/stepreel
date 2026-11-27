@@ -140,3 +140,14 @@ input[type='number'] {
 footer {
   margin-top: 24px;
 }
+
+#restore {
+  max-width: 32em;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg, Canvas);
+  color: inherit;
+}
+#restore::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}

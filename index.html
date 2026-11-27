@@ -24,7 +24,8 @@
         <button id="clear" class="secondary" disabled>清空</button>
         <span id="project-state" role="status"></span>
       </div>
-      <p class="hint">「播完幾次自動到下一步」填 0 表示不自動前進。也可以把 zip 直接拖到這頁。</p>
+      <p id="draft-state" class="hint" role="status"></p>
+      <p class="hint">「播完幾次自動到下一步」填 0 表示不自動前進。也可以把 zip 直接拖到這頁。還沒匯出的步驟會暫存在這個瀏覽器,重新整理或關掉頁面後可以復原;換電腦或清除網站資料就沒了,要保存請匯出 zip。</p>
       <ul id="notes" hidden></ul>
     </section>
 
@@ -74,6 +75,14 @@
       </div>
       <p class="hint">拖兩個把手定起訖;選取把手後也可以用 ← → 微調(每次 0.1 秒)。修剪不重新編碼,只記在步驟清單裡。</p>
     </section>
+
+    <dialog id="restore">
+      <p id="restore-text"></p>
+      <div class="row">
+        <button id="restore-yes">復原</button>
+        <button id="restore-no" class="secondary">丟棄</button>
+      </div>
+    </dialog>
 
     <footer class="hint"><a href="./m1.html">M1 格式實測頁</a></footer>
 
