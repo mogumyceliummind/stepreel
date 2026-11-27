@@ -71,7 +71,7 @@
 | 放大 2 倍錄、縮回原尺寸看,VP9 | 0.20 | 88% | 54 KB |
 | 放大 2 倍錄、縮回原尺寸看,H.264 | 0.48 | 86% | 27 KB |
 
-- 放大 2 倍錄製所有播放器都能用。4:4:4 的 AV1(WebCodecs 回報支援編碼)能保留完整色彩,但播放端(尤其 Safari)的支援還沒查證。
+- 放大 2 倍錄製所有播放器都能用。4:4:4 的 AV1(WebCodecs 回報支援編碼)能保留完整色彩,但 Safari 只在有 AV1 硬體解碼的裝置能播(見下方查證)。
 - GIF 不受 4:2:0 影響,但只有 256 色;GIF 每格短於 20 毫秒時瀏覽器會當成 100 毫秒,做不到 60 fps。
 
 **整個視窗,錄製放大 2×、60 fps**(Chrome 158,分享視窗、沒有框選;3840×2064(原尺寸 1920×1032),38.09 秒,923 格,平均 24.2 fps;錄製 6 Mbps;其餘設定同上;Visy 2026-11-27)
@@ -90,7 +90,14 @@
 - 要求 60 fps,平均只有 24.2 fps:螢幕分享在畫面沒變動時不送新格,平均格率取決於畫面變動多少,不等於上限。
 - 2× 整個視窗是 4K 尺寸,錄製 6 Mbps 可能偏低,轉檔也明顯變慢(AV1 21 秒);整個視窗時用 12 Mbps 或改用框選還沒比較。
 
-### 待實測(要用真實螢幕錄影)
+### Safari 的 AV1、VP9 播放支援(網路查證,Claude 2026-11-27;沒有實機測)
+
+- **AV1:** Safari 17 起支援,但只在有 AV1 硬體解碼的裝置(A17 Pro 的 iPhone 15 Pro 以後、M3 以後的 Mac)。Apple 沒有提供軟體解碼,較舊的 iPhone、M1 / M2 Mac 播不了。有一則討論說 Safari 有軟體解碼,和多數來源矛盾,沒有 Apple 官方來源能確認。
+- **VP9(WebM):** macOS 11.3 的 Safari 14.1、iOS 15 起支援。iPhone XS 以前沒有 VP9 硬體解碼,用軟體解,較耗電。有使用者回報 `MediaSource.isTypeSupported` 對 VP9 回傳 false(只影響 MSE;播放元件預計用 `<video src>` 播 MP4,尚未實作,沒有實測)。
+- **對開發的影響:** 支持 D-0011 只存 H.264;R-015 的重啟條件(AV1 播放涵蓋目標觀看者的裝置)目前不成立。
+- 來源:[Bitmovin:Apple AV1 support](https://bitmovin.com/blog/apple-av1-support/)、[Bitmovin:AV1 playback support](https://bitmovin.com/av1-playback-support/)、[FFmpeg trac #10642](https://lists.ffmpeg.org/archives/list/ffmpeg-trac@ffmpeg.org/thread/E7L72L2GNBZBKABMFKUHKAVR5K47DVXK/)、[WebKit bug 311593](https://bugs.webkit.org/show_bug.cgi?id=311593)、[MacRumors:Safari 支援 WebM](https://www.macrumors.com/2021/02/18/safari-to-support-webm-after-11-years/)、[caniuse:WebM](https://caniuse.com/webm)、[WebKit bug 216652](https://bugs.webkit.org/show_bug.cgi?id=216652)
+
+### 待實測(要用真實螢幕錄影;Visy 2026-11-27 決定先跳過,不擋後續任務)
 
 - 2× 框選一小塊的大小;2× 整個視窗用 12 Mbps 錄製是否更好
 - 情境 B(捲動長頁面)、C(開選單、切換分頁)
