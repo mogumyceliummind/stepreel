@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>stepreel 試播</title>
+  </head>
+  <body>
+    <header>
+      <h1>stepreel <small>試播</small></h1>
+      <p class="hint">用播放元件 <code>&lt;step-reel&gt;</code> 播一份套件,並量測修剪起訖的精準度。網頁上放的是解壓後的資料夾;這裡也可以直接選 zip 預覽(只在這個瀏覽器裡讀,不會上傳)。</p>
+    </header>
+
+    <section>
+      <h2>套件</h2>
+      <form id="src-form" class="row">
+        <label>manifest.json 的網址 <input id="src" type="text" size="40" placeholder="例:tutorial/manifest.json" /></label>
+        <button type="submit">載入</button>
+        <label class="file-btn">選 zip <input id="zip" type="file" accept=".zip,application/zip" /></label>
+      </form>
+      <div class="row">
+        <label>播完幾次自動到下一步 <input id="loops" type="number" min="0" max="99" placeholder="套件設定" /></label>
+        <span id="state" role="status"></span>
+      </div>
+      <p class="hint">「播完幾次」留空就用套件的設定,填 0 不自動前進。</p>
+    </section>
+
+    <section>
+      <step-reel id="reel"></step-reel>
+    </section>
+
+    <section>
+      <h2>修剪精準度</h2>
+      <p class="hint">每播完一次記一筆。終點:跳回前最後一格離修剪終點多遠(正的是在終點前,畫面不動時沒有新格所以可能較大;負的表示播過頭)。起點:跳回後第一格比修剪起點早多少(0 ~ 一格以內是對的)。跳回:畫面停住多久才出現起點那一格。</p>
+      <div class="row">
+        <button id="copy" class="secondary">複製結果</button>
+        <button id="reset" class="secondary">清除</button>
+      </div>
+      <table id="stats">
+        <thead>
+          <tr><th>步驟</th><th>次數</th><th>終點(毫秒)</th><th>起點(毫秒)</th><th>跳回平均(毫秒)</th><th>跳回最長(毫秒)</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <footer class="hint"><a href="./">錄製頁</a></footer>
+
+    <script type="module" src="/src/player-demo.ts"></script>
+  </body>
+</html>
