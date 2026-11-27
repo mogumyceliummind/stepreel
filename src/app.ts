@@ -4,7 +4,8 @@ import './style.css';
 import './app.css';
 import { RECORDER_TYPES, Recorder, evenRect, pickScreen, setFrameRate, type Rect } from './capture';
 import { canEncodeH264, posterAt, toPackageVideo } from './convert';
-import { exportZip, importZip, newId, normTrim, zipFileName, type Project, type Step } from './package';
+import { DraftWriter, isQuotaError, loadDraft, peekDraft } from './draft';
+import { exportZip, importZip, newId, normTrim, zipFileName, type ImportResult, type Project, type Step } from './package';
 
 const $ = <T extends HTMLElement>(id: string) => {
   const el = document.getElementById(id);
@@ -19,6 +20,11 @@ const exportBtn = $<HTMLButtonElement>('export');
 const importInput = $<HTMLInputElement>('import');
 const clearBtn = $<HTMLButtonElement>('clear');
 const projectState = $('project-state');
+const draftState = $('draft-state');
+const restoreDialog = $<HTMLDialogElement>('restore');
+const restoreText = $('restore-text');
+const restoreBtn = $<HTMLButtonElement>('restore-yes');
+const discardBtn = $<HTMLButtonElement>('restore-no');
 const notesList = $('notes');
 const pickBtn = $<HTMLButtonElement>('pick');
 const scaleSel = $<HTMLSelectElement>('scale');
@@ -49,7 +55,7 @@ const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 // ---- 專案狀態 ----
 
 const project: Project = { title: titleInput.value, background: '#ffffff', advanceAfterLoops: 0, steps: [] };
-/** 有沒匯出的變更(還沒有 IndexedDB 暫存,D-0013 第 1 點) */
+/** 有沒匯出的變更(暫存在 IndexedDB,D-0014) */
 let dirty = false;
 /** 錄影或轉檔中:鎖住會改步驟列表的操作 */
 let busy = false;
@@ -66,10 +72,82 @@ let changes = 0;
 function markDirty() {
   dirty = true;
   changes++;
+  scheduleSave();
+}
+
+// ---- 暫存(D-0014) ----
+
+/**
+ * off:還沒決定要不要復原、或這個瀏覽器不能暫存;on:自動暫存;
+ * other-tab:另一個分頁正在編輯(只有一個分頁能暫存,避免互相覆蓋)
+ */
+let autosave: 'off' | 'on' | 'other-tab' = 'off';
+const writer = new DraftWriter();
+/** 暫存裡的內容對應到第幾次變更;-1 表示暫存裡沒有未匯出的內容 */
+let savedChanges = -1;
+let saveTimer = 0;
+let saving: Promise<void> = Promise.resolve();
+
+/** 暫存只放「有步驟、還沒匯出」的內容;匯出、清空、匯入之後清掉 */
+const wantDraft = () => dirty && project.steps.length > 0;
+
+/** 這個分頁拿到暫存權(Web Locks)了沒 */
+let ownsDraft = false;
+
+/**
+ * 匯出、清空、匯入之後:暫存裡的舊內容已經沒用了。
+ * 「先不決定」或復原失敗而暫停的話,這時清掉舊暫存並開始自動暫存;別的分頁的暫存不動。
+ */
+function afterCommit() {
+  if (autosave === 'off' && ownsDraft) {
+    autosave = 'on';
+    draftState.textContent = '';
+  }
+  scheduleSave(0);
+}
+
+function scheduleSave(delay = 400) {
+  if (autosave !== 'on') return;
+  clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => void saveNow(), delay);
+}
+
+/**
+ * 步驟列表的變更都是同步完成的(錄影、轉檔、匯入期間不動 project,完成時一次換上),
+ * 所以任何時候拍下的 project 都是完整的,不必等 busy 結束。
+ */
+function saveNow(): Promise<void> {
+  clearTimeout(saveTimer);
+  saving = saving.then(async () => {
+    if (autosave !== 'on') return;
+    const at = changes;
+    try {
+      if (wantDraft()) {
+        await writer.save(project);
+        savedChanges = at;
+        draftState.textContent = `已暫存在這個瀏覽器(${new Date().toLocaleTimeString()})`;
+      } else {
+        await writer.clear();
+        savedChanges = -1;
+        draftState.textContent = '';
+      }
+    } catch (e) {
+      draftState.textContent = isQuotaError(e)
+        ? '暫存失敗:瀏覽器的儲存空間不夠。請先匯出 zip。'
+        : `暫存失敗:${errText(e)}。請記得匯出 zip。`;
+    }
+  });
+  return saving;
+}
+
+/** 有沒有關掉頁面就會不見的東西 */
+function hasUnsaved(): boolean {
+  if (!wantDraft()) return false;
+  return autosave !== 'on' || savedChanges !== changes;
 }
 
 window.addEventListener('beforeunload', (e) => {
-  if (dirty && project.steps.length > 0) e.preventDefault();
+  if (hasUnsaved()) e.preventDefault();
 });
 
 titleInput.oninput = () => {
@@ -600,6 +678,7 @@ async function refreshPoster(s: Step, before: number) {
     // 產生期間又改了起點或重錄了,就不覆蓋
     if (s.video === video && Math.abs(currentTrim(s).start - now) < 0.001) {
       s.poster = poster;
+      scheduleSave();
       render();
     }
   } catch (e) {
@@ -686,7 +765,10 @@ exportBtn.onclick = async () => {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
     // 匯出期間改了名稱等設定,就還算有沒匯出的變更
-    if (changes === at) dirty = false;
+    if (changes === at) {
+      dirty = false;
+      afterCommit();
+    }
     projectState.textContent = `已匯出 ${a.download}(${(zip.size / 1024 / 1024).toFixed(2)} MB)`;
   } catch (e) {
     projectState.textContent = `匯出失敗:${errText(e)}`;
@@ -695,6 +777,31 @@ exportBtn.onclick = async () => {
     render();
   }
 };
+
+/** 補海報、換上專案(匯入 zip 與復原暫存共用) */
+async function applyImport({ project: p, notes, needPoster }: ImportResult): Promise<Project> {
+  for (const id of needPoster) {
+    const s = p.steps.find((x) => x.id === id);
+    if (!s) continue;
+    try {
+      s.poster = await posterAt(s.video, s.trim?.start ?? 0);
+    } catch (e) {
+      notes.push(`第 ${p.steps.indexOf(s) + 1} 步的海報圖產生失敗:${errText(e)}`);
+    }
+  }
+  Object.assign(project, p);
+  titleInput.value = p.title;
+  loopsInput.value = String(p.advanceAfterLoops);
+  bgInput.value = p.background;
+  selectedId = null;
+  mode = { kind: 'append' };
+  leaveRerecord();
+  // 繼續錄時沿用第一步的框選(超出目前畫面時,錄影前會提示重新框選)
+  if (p.steps[0] && !crop) crop = p.steps[0].crop;
+  showCrop();
+  showNotes(notes);
+  return p;
+}
 
 async function loadZip(file: File) {
   if (busy) {
@@ -706,28 +813,11 @@ async function loadZip(file: File) {
   render();
   projectState.textContent = `讀取 ${file.name}…`;
   try {
-    const { project: p, notes, needPoster } = await importZip(file);
-    for (const id of needPoster) {
-      const s = p.steps.find((x) => x.id === id);
-      if (!s) continue;
-      try {
-        s.poster = await posterAt(s.video, s.trim?.start ?? 0);
-      } catch (e) {
-        notes.push(`第 ${p.steps.indexOf(s) + 1} 步的海報圖產生失敗:${errText(e)}`);
-      }
-    }
-    Object.assign(project, p);
-    titleInput.value = p.title;
-    loopsInput.value = String(p.advanceAfterLoops);
-    bgInput.value = p.background;
-    selectedId = null;
-    mode = { kind: 'append' };
-    leaveRerecord();
+    const p = await applyImport(await importZip(file));
     dirty = false;
-    // 繼續錄時沿用第一步的框選(超出目前畫面時,錄影前會提示重新框選)
-    if (p.steps[0] && !crop) crop = p.steps[0].crop;
-    showCrop();
-    showNotes(notes);
+    changes++;
+    // 匯入的 zip 本身就是正本,暫存清掉
+    afterCommit();
     projectState.textContent = `已匯入 ${file.name}:${p.steps.length} 步`;
   } catch (e) {
     projectState.textContent = `匯入失敗:${errText(e)}`;
@@ -762,9 +852,106 @@ clearBtn.onclick = () => {
   mode = { kind: 'append' };
   leaveRerecord();
   dirty = false;
+  changes++;
+  afterCommit();
   showNotes([]);
   projectState.textContent = '';
   render();
 };
 
+// ---- 開頁:取得暫存權、問要不要復原 ----
+
+/** 用 Web Locks 讓同一時間只有一個分頁暫存;拿到就一直持有到分頁關掉 */
+function claimDraftLock(): Promise<boolean> {
+  if (!navigator.locks) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    void navigator.locks.request('stepreel-draft', { ifAvailable: true }, (lock) => {
+      resolve(!!lock);
+      return lock ? new Promise<void>(() => {}) : undefined;
+    });
+  });
+}
+
+function fmtTime(ms: number): string {
+  return ms ? new Date(ms).toLocaleString() : '不明的時間';
+}
+
+/** 等使用者按復原或丟棄;按 Esc 關掉視窗時當作「先不決定」:暫存留著、這次不自動暫存 */
+function askRestore(text: string, canRestore: boolean): Promise<'restore' | 'discard' | 'later'> {
+  restoreText.textContent = text;
+  restoreBtn.hidden = !canRestore;
+  return new Promise((resolve) => {
+    const finish = (r: 'restore' | 'discard' | 'later') => {
+      restoreDialog.onclose = null;
+      if (restoreDialog.open) restoreDialog.close();
+      resolve(r);
+    };
+    restoreBtn.onclick = () => finish('restore');
+    discardBtn.onclick = () => finish('discard');
+    restoreDialog.onclose = () => finish('later');
+    restoreDialog.showModal();
+  });
+}
+
+async function startAutosave() {
+  if (!(await claimDraftLock())) {
+    autosave = 'other-tab';
+    draftState.textContent = '另一個分頁正在編輯,這個分頁不自動暫存。請記得匯出 zip。';
+    return;
+  }
+  ownsDraft = true;
+  let info;
+  try {
+    info = await peekDraft();
+  } catch (e) {
+    draftState.textContent = `不能暫存:${errText(e)}。請記得匯出 zip。`;
+    return;
+  }
+  if (info && info.steps > 0) {
+    const name = info.title ? `「${info.title}」` : '';
+    const choice = info.tooNew
+      ? await askRestore(`這個瀏覽器裡有 ${fmtTime(info.savedAt)} 暫存的${name}${info.steps} 步,但格式比這一版新,不能復原。要丟棄嗎?`, false)
+      : await askRestore(`上次有沒匯出的${name}${info.steps} 步(暫存於 ${fmtTime(info.savedAt)})。要復原嗎?`, true);
+    if (choice === 'later') {
+      draftState.textContent = '暫存還留著,這次不自動暫存;重新整理後可以再選。';
+      return;
+    }
+    if (choice === 'restore') {
+      // 問的時候已經錄了新步驟:不蓋掉,先請使用者處理
+      if (project.steps.length > 0 || busy) {
+        draftState.textContent = '已經有新的步驟,沒有復原;暫存還留著,這次不自動暫存。請匯出後重新整理再復原。';
+        return;
+      }
+      busy = true;
+      render();
+      draftState.textContent = '復原中…';
+      try {
+        const r = await loadDraft();
+        // 全部步驟都讀不回來:不清掉暫存,留給使用者決定(下次開頁可以再選丟棄)
+        if (!r || r.project.steps.length === 0) {
+          if (r) showNotes(r.notes);
+          throw new Error('暫存裡沒有讀得回來的步驟');
+        }
+        const p = await applyImport(r);
+        writer.adopt(p);
+        dirty = true;
+        changes++;
+        savedChanges = changes;
+        projectState.textContent = `已復原 ${p.steps.length} 步(還沒匯出)`;
+      } catch (e) {
+        draftState.textContent = `復原失敗:${errText(e)}。暫存還留著,這次不自動暫存。`;
+        return;
+      } finally {
+        busy = false;
+        render();
+      }
+    }
+  }
+  autosave = 'on';
+  draftState.textContent = '';
+  // 丟棄、沒有暫存、或問的時候已經改了東西:依目前狀態寫入或清掉
+  await saveNow();
+}
+
 render();
+void startAutosave();
