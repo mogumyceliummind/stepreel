@@ -3,84 +3,80 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>stepreel · M1 格式實測</title>
+    <title>stepreel</title>
   </head>
   <body>
     <header>
-      <h1>stepreel <small>M1 格式實測</small></h1>
-      <p class="hint">錄一段,或選一個影片檔,同一段輸出成各種格式,比較大小與畫質。所有處理都在這個瀏覽器裡,不會上傳。</p>
+      <h1>stepreel <small>錄製</small></h1>
+      <p class="hint">框選畫面的一塊範圍,一步錄一段,匯出成播放套件(zip)。所有處理都在這個瀏覽器裡,不會上傳。匯出的 zip 就是專案檔,拖回這頁可以繼續編輯。</p>
     </header>
 
+    <section id="project">
+      <h2>專案</h2>
+      <div class="row">
+        <label>教學名稱 <input id="title" type="text" value="未命名教學" maxlength="100" /></label>
+        <label>播完幾次自動到下一步 <input id="loops" type="number" min="0" max="99" value="0" /></label>
+        <label>四周底色 <input id="background" type="color" value="#ffffff" /></label>
+      </div>
+      <div class="row">
+        <button id="export" disabled>匯出 zip</button>
+        <label class="file-btn">匯入 zip <input id="import" type="file" accept=".zip,application/zip" /></label>
+        <button id="clear" class="secondary" disabled>清空</button>
+        <span id="project-state" role="status"></span>
+      </div>
+      <p class="hint">「播完幾次自動到下一步」填 0 表示不自動前進。也可以把 zip 直接拖到這頁。</p>
+      <ul id="notes" hidden></ul>
+    </section>
+
     <section id="record">
-      <h2>1. 錄一段</h2>
+      <h2>錄製</h2>
       <div class="row">
         <button id="pick">選畫面</button>
-        <label>錄製格式 <select id="mime"></select></label>
-        <label>錄製位元率 <select id="bitrate">
-          <option value="2500000">2.5 Mbps</option>
-          <option value="6000000" selected>6 Mbps</option>
-          <option value="12000000">12 Mbps</option>
+        <label>放大 <select id="scale">
+          <option value="2" selected>2×(顏色、銳利度較好)</option>
+          <option value="1">1×(檔案較小)</option>
         </select></label>
-        <label>錄製格率 <select id="rec-fps">
-          <option value="30" selected>30 fps</option>
-          <option value="60">60 fps</option>
+        <label>格率上限 <select id="fps">
+          <option value="60" selected>60 fps</option>
+          <option value="30">30 fps</option>
         </select></label>
-        <label>錄製放大 <select id="rec-scale">
-          <option value="1" selected>1×</option>
-          <option value="2">2×(顏色、銳利度較好)</option>
-        </select></label>
-        <button id="rec" disabled>開始錄影</button>
-        <span id="rec-state"></span>
+        <button id="rec" disabled>錄新步驟</button>
+        <button id="cancel-mode" class="secondary" hidden>改成錄新步驟</button>
+        <span id="rec-state" role="status"></span>
       </div>
-      <p class="hint">選好畫面後在下方預覽上拖拉框選範圍;不框選就錄整個畫面。錄製放大 2× 時影片存成兩倍尺寸,結果區縮回原尺寸顯示;動圖縮放以原尺寸為 100%。</p>
+      <p class="hint">選好畫面後在預覽上拖拉框選範圍;之後各步沿用,要改就重新拖拉。不框選就錄整個畫面。</p>
       <div id="stage" hidden>
         <video id="preview" muted playsinline></video>
         <div id="crop-box" hidden></div>
       </div>
       <p id="crop-info" class="hint"></p>
-      <details>
-        <summary>這個瀏覽器的 MediaRecorder 支援哪些格式</summary>
-        <ul id="support"></ul>
-      </details>
-      <div class="row">
-        <label>或選一個影片檔 <input id="file" type="file" accept="video/*" /></label>
-      </div>
     </section>
 
-    <section id="convert" hidden>
-      <h2>2. 轉檔</h2>
-      <p id="source-info"></p>
-      <div class="row">
-        <label>影片畫質 <select id="quality">
-          <option value="medium">中</option>
-          <option value="high" selected>高</option>
-        </select></label>
-        <label>動圖格率 <select id="fps">
-          <option value="10">10 fps</option>
-          <option value="15" selected>15 fps</option>
-          <option value="24">24 fps</option>
-          <option value="30">30 fps</option>
-        </select></label>
-        <label>動圖縮放 <select id="scale">
-          <option value="1" selected>100%</option>
-          <option value="0.75">75%</option>
-          <option value="0.5">50%</option>
-        </select></label>
-        <label>WebP 品質 <select id="webp-q">
-          <option value="0.6">60</option>
-          <option value="0.8" selected>80</option>
-          <option value="0.95">95</option>
-        </select></label>
-        <button id="run">全部轉檔</button>
-        <span id="run-state"></span>
-      </div>
-      <div id="results"></div>
-      <div class="row">
-        <button id="copy" disabled>複製結果(Markdown)</button>
-      </div>
-      <pre id="md" hidden></pre>
+    <section id="steps-sec">
+      <h2>步驟 <small id="steps-count"></small></h2>
+      <p class="hint">點一步可以修剪頭尾;拖拉或用 ↑ ↓ 排序。「插入」之後按錄影,新步驟會放在那一步後面。</p>
+      <div class="row"><button id="insert-first" class="secondary small" hidden>在最前面插入</button></div>
+      <ol id="steps"></ol>
+      <p id="steps-empty" class="hint">還沒有步驟。選畫面後按「錄新步驟」。</p>
     </section>
 
-    <script type="module" src="/src/main.ts"></script>
+    <section id="editor" hidden>
+      <h2 id="editor-title">修剪</h2>
+      <video id="editor-video" muted playsinline></video>
+      <div id="timeline" aria-label="修剪範圍">
+        <div id="timeline-range"></div>
+        <div class="handle" id="handle-start" role="slider" tabindex="0" aria-label="起點"></div>
+        <div class="handle" id="handle-end" role="slider" tabindex="0" aria-label="終點"></div>
+      </div>
+      <div class="row">
+        <span id="trim-info"></span>
+        <button id="trim-reset" class="secondary">恢復整段</button>
+      </div>
+      <p class="hint">拖兩個把手定起訖;選取把手後也可以用 ← → 微調(每次 0.1 秒)。修剪不重新編碼,只記在步驟清單裡。</p>
+    </section>
+
+    <footer class="hint"><a href="./m1.html">M1 格式實測頁</a></footer>
+
+    <script type="module" src="/src/app.ts"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-// 瀏覽器內轉檔(D-0008 第 5 點、D-0010)。M1 用來實測各格式的大小與畫質。
+// 瀏覽器內轉檔(D-0008 第 5 點、D-0010)。M1 實測頁與錄製頁共用。
 
 import {
   ALL_FORMATS,
@@ -66,13 +66,18 @@ export async function probe(blob: Blob): Promise<VideoInfo> {
   }
 }
 
-/** 重新編碼成 MP4 / WebM,保留原本每一格的時間(螢幕錄影的格率不固定)。 */
+/**
+ * 重新編碼成 MP4 / WebM,保留原本每一格的時間(螢幕錄影的格率不固定)。
+ * `minDuration`(秒):最後一格延長到至少這個長度。螢幕分享在畫面不動時不送新格,
+ * MediaRecorder 的 WebM 也不記最後一格的長度,畫面幾乎不動的一段會只剩零秒。
+ */
 export async function encodeVideo(
   blob: Blob,
   label: string,
   codec: VideoCodec,
   container: 'mp4' | 'webm',
   qualityName: QualityName,
+  minDuration = 0,
 ): Promise<Result> {
   const t0 = performance.now();
   const { input, track, start } = await openVideo(blob);
@@ -97,10 +102,16 @@ export async function encodeVideo(
     await output.start();
 
     const sink = new CanvasSink(track, { width, height, fit: 'fill', poolSize: 2 });
+    let lastEnd = -1;
     for await (const frame of sink.canvases()) {
       ctx.drawImage(frame.canvas, 0, 0);
-      await source.add(frame.timestamp - start, frame.duration);
+      const ts = frame.timestamp - start;
+      await source.add(ts, frame.duration);
+      lastEnd = ts + Math.max(frame.duration, 1 / 120);
     }
+    if (lastEnd < 0) throw new Error('影片裡沒有畫面');
+    // canvas 上還是最後一格:補一格到 minDuration
+    if (minDuration > lastEnd + 0.01) await source.add(lastEnd, minDuration - lastEnd);
     await output.finalize();
     if (!target.buffer) throw new Error('編碼沒有產生輸出');
     return {
@@ -277,5 +288,44 @@ export async function encodeGif(blob: Blob, label: string, fps: number, scale: n
     };
   } catch (e) {
     return { label, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// ---- 錄製頁用(D-0011、D-0013) ----
+
+/** 這個瀏覽器能不能用「高」畫質編碼這個尺寸的 H.264(D-0011 第 4 點) */
+export async function canEncodeH264(width: number, height: number): Promise<boolean> {
+  return canEncodeVideo('avc', { width: even(width), height: even(height), quality: QUALITY_HIGH });
+}
+
+/** 錄好的一段轉成套件用的 MP4 H.264,回傳影片與長度(秒)。`wallSeconds`:實際錄了多久 */
+export async function toPackageVideo(recording: Blob, wallSeconds = 0): Promise<{ video: Blob; duration: number }> {
+  const r = await encodeVideo(recording, '套件影片', 'avc', 'mp4', 'high', wallSeconds);
+  if (!r.blob) throw new Error(r.error ?? '轉檔沒有輸出');
+  return { video: r.blob, duration: await videoDuration(r.blob) };
+}
+
+export async function videoDuration(blob: Blob): Promise<number> {
+  const { input, start, end } = await openVideo(blob);
+  input.dispose();
+  return end - start;
+}
+
+/** 第 `t` 秒(從影片開頭算)那一格的 JPEG,給海報用(docs/SCHEMA.md §2) */
+export async function posterAt(video: Blob, t: number): Promise<Blob> {
+  const { input, track, start } = await openVideo(video);
+  try {
+    const sink = new CanvasSink(track, { poolSize: 1 });
+    const frame = (await sink.getCanvas(start + t)) ?? (await sink.getCanvas(start));
+    if (!frame) throw new Error('影片裡沒有畫面');
+    const c = frame.canvas;
+    const blob =
+      c instanceof OffscreenCanvas
+        ? await c.convertToBlob({ type: 'image/jpeg', quality: 0.85 })
+        : await new Promise<Blob | null>((ok) => c.toBlob(ok, 'image/jpeg', 0.85));
+    if (!blob) throw new Error('無法產生海報圖');
+    return blob;
+  } finally {
+    input.dispose();
   }
 }
