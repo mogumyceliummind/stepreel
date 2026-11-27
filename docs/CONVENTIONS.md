@@ -75,6 +75,13 @@
 - **之後:** 每格時間由累計時間換算(`src/convert.ts` 的 `spanMs`);GIF 格率不超過 50 fps。
 - **來源:** M1 實測(`docs/RESEARCH.md` §5)
 
+### 內建瀏覽器窗格隱藏時,計時與播放不準
+
+- **現象:** 在內建瀏覽器量播放元件的修剪精準度,量到播過頭好幾秒;重量一次又正常。
+- **根因:** 窗格隱藏時頁面被當成背景分頁,`requestAnimationFrame`、`requestVideoFrameCallback` 每秒只跑一兩次(`document.hidden` 仍是 `false`)。
+- **之後:** 量時間、格率、播放前先用 `tabs_context` 確認窗格是顯示的,隱藏時請使用者打開;播放元件本身也加了 `timeupdate` 的備援(D-0015 第 4 點),背景分頁不會卡住。
+- **來源:** 播放元件實作時發現(D-0015)
+
 ### 內建瀏覽器不能驗證 Service Worker
 
 - **現象:** 在 Claude 桌面版的內建瀏覽器開正式建置,Service Worker 註冊失敗。

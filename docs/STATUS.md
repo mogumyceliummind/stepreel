@@ -1,6 +1,6 @@
 # STATUS — 現況
 
-最後更新:2026-11-27(Visy,錄製頁 IndexedDB 暫存的 PR #8)
+最後更新:2026-11-27(Visy,播放元件的 PR #待補)
 
 只記「現在的狀態」。為什麼這樣決定見 `DECISIONS.md`;過程見 git 歷史與 PR。
 **更新方式是改寫,不是往下追加。** 已驗收的項目從 §2 移除,留在 §1 的一行摘要即可。
@@ -14,7 +14,8 @@
 | 協作文件、審查員、skill | 沿用範本 | `main` | D-0001 ~ D-0006 待 Visy 確認 |
 | M1 格式實測頁 | 已合併 | `main` | 選畫面、框選、錄一段(30 / 60 fps、1× / 2× 放大),同一段輸出 MP4 / WebM(VP9、AV1)/ 動態 WebP / GIF 並列大小;技術棧 D-0010。真實錄影已測整個視窗、框選、2× 三組(`docs/RESEARCH.md` §5):影片遠小於動圖,2× 錄製改善顏色與銳利度。據此定案 D-0011:套件影片用 H.264、預設 2×、60 fps |
 | 錄製頁 | 已驗收 | `main` | 首頁 `index.html`(D-0013):選畫面、框選、一步錄一段(預設 2×、60 fps,超過 H.264 上限自動 1×),步驟可重錄、刪除、排序、插入、修剪頭尾,匯出匯入 zip 套件(版本 1)。Visy 2026-11-27 用 Chrome、Edge 真實錄影實測通過。未匯出的步驟自動暫存在 IndexedDB,開頁可復原或丟棄(D-0014;真實錄影後的復原待 Visy 實測,`docs/PENDING.md` §1) |
-| 轉檔(單一 MP4、動圖)、播放元件 | 未開始 | — | 編輯與播放元件 D-0009;步驟清單格式版本 1(`docs/SCHEMA.md`,D-0012) |
+| 播放元件 | 已合併 | `main` | `<step-reel src=".../manifest.json">`(D-0015):單畫面循環播放、編號列、自動前進(屬性可覆寫)、依 `trim` 起訖播放;單獨打包成 `dist/step-reel.js`。試播頁 `player.html` 可選 zip 預覽並量測修剪精準度。Chromium 已驗證沒有播過頭、跳回不閃;Edge、Safari 待實測(`docs/PENDING.md` §1) |
+| 轉檔(單一 MP4、動圖) | 未開始 | — | 可選燒編號徽章(D-0009 第 4 點);步驟清單格式版本 1(`docs/SCHEMA.md`,D-0012) |
 
 ## 2. 進行中
 
@@ -39,8 +40,8 @@
 
 ## 5. 下一步候選
 
-1. 播放元件(Web Component),含 `trim` 用 `currentTime` 的精準度實機驗證(`docs/SCHEMA.md` §6)
-2. 單一 MP4 與動圖匯出(可選燒編號徽章,D-0009 第 4 點)
+1. 單一 MP4 與動圖匯出(可選燒編號徽章,D-0009 第 4 點)
+2. 播放元件在 Edge、Safari 的修剪精準度實測(`docs/PENDING.md` §1);結果不夠準時在播放元件裡處理(`docs/SCHEMA.md` §6)
 3. 確認 D-0001 ~ D-0006,或寫新決策取代
 4. M1 補測(`docs/PENDING.md` §1);Visy 2026-11-27 決定先跳過
 5. 回寫 Visy 另一個專案原始決策的第 7 點(那個 repo 的 PR,結論見 D-0011);Visy 2026-11-27 決定放到最後
@@ -64,8 +65,10 @@
 | 錄製預設 | 放大 2×(可改 1×)、格率上限 60 fps;動圖 ≤ 30 fps | D-0011 |
 | 步驟清單格式 | 版本 1 已定版;網頁放解壓後的資料夾,播放元件不讀 zip | D-0012 |
 | zip、錄製位元率 | zip 自己寫(寫出不壓縮、讀取支援 deflate);中間檔位元率依像素數 4 ~ 20 Mbps,套件影片用 mediabunny「高」畫質 | D-0013 |
-| 頁面 | 錄製頁是首頁;M1 實測頁在 `m1.html` | D-0013 |
+| 頁面 | 錄製頁是首頁;M1 實測頁在 `m1.html`;試播頁在 `player.html` | D-0013、D-0015 |
+| 播放元件 | `<step-reel src advance-after-loops>`;最後一步不繞回;單獨打包 `dist/step-reel.js` | D-0015 |
 
 ## 7. 操作備忘
 
-- **本機執行:** `npm install` 後 `npm run dev`,用 Chrome / Edge 開 `http://localhost:5173`(錄製頁)、`http://localhost:5173/m1.html`(M1 實測頁);檢查用 `npm run check`
+- **本機執行:** `npm install` 後 `npm run dev`,用 Chrome / Edge 開 `http://localhost:5173`(錄製頁)、`http://localhost:5173/m1.html`(M1 實測頁)、`http://localhost:5173/player.html`(試播頁);檢查用 `npm run check`
+- **試播本機資料夾:** 把套件解壓到 `samples/<名稱>/`(不進 git),開 `http://localhost:5173/player.html?src=samples/<名稱>/manifest.json`。手機或 Mac 測 Safari 時用 `npm run dev -- --host`,開電腦的區網 IP

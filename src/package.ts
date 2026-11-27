@@ -1,15 +1,10 @@
 // 播放套件:步驟清單與 zip 的轉換(docs/SCHEMA.md 版本 1,D-0012)。
 
 import type { Rect } from './capture';
+import { FORMAT, MANIFEST_MAX_BYTES, VERSION, checkFormat, isNum, isPackagePath, readTrim, type Trim } from './format';
 import { readZip, writeZip, type ZipEntry } from './zip';
 
-export const FORMAT = 'stepreel';
-export const VERSION = 1;
-
-export interface Trim {
-  start: number;
-  end: number;
-}
+export { FORMAT, VERSION, isPackagePath, type Trim };
 
 /** 編輯中的一步。影片已是 H.264 MP4(D-0011),海報是修剪後第一格的 JPEG。 */
 export interface Step {
@@ -63,15 +58,6 @@ export function newId(taken: Iterable<string> = []): string {
   }
 }
 
-/** docs/SCHEMA.md §3:只能是套件內的相對路徑 */
-export function isPackagePath(p: unknown): p is string {
-  if (typeof p !== 'string' || p === '') return false;
-  if (p.startsWith('/') || p.includes('\\')) return false;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(p)) return false; // http:、data:、blob: 等
-  // 不接受 ..、.、空的路徑段(// 開頭也在這裡擋掉)
-  return !p.split('/').some((seg) => seg === '..' || seg === '.' || seg === '');
-}
-
 /** 修剪起訖等於整段時不寫 trim */
 export function normTrim(trim: Trim | null, duration: number): Trim | null {
   if (!trim) return null;
@@ -84,12 +70,10 @@ export function normTrim(trim: Trim | null, duration: number): Trim | null {
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
-const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
-
 /** 匯入時的上限(D-0013 第 5 點) */
 export const IMPORT_LIMITS = {
   steps: 500,
-  manifestBytes: 1024 * 1024,
+  manifestBytes: MANIFEST_MAX_BYTES,
   /** 框選的座標與寬高(像素) */
   pixels: 16384,
 } as const;
@@ -205,11 +189,9 @@ export async function importZip(zip: Blob): Promise<ImportResult> {
 export function fromManifest(raw: unknown, file: (path: string) => Blob | null): ImportResult {
   if (!raw || typeof raw !== 'object') throw new Error('不是 stepreel 的套件');
   const m = raw as Record<string, unknown>;
-  if (m.format !== FORMAT || !isNum(m.version) || !Number.isInteger(m.version) || m.version < 1) {
-    throw new Error('不是 stepreel 的套件(format 或 version 不對)');
-  }
+  const version = checkFormat(m);
   const notes: string[] = [];
-  if (m.version > VERSION) notes.push(`這份套件是較新的格式(版本 ${m.version}),存檔時可能遺失新版的欄位。`);
+  if (version > VERSION) notes.push(`這份套件是較新的格式(版本 ${version}),存檔時可能遺失新版的欄位。`);
 
   const player = m.player && typeof m.player === 'object' ? (m.player as Record<string, unknown>) : {};
   const loops = isNum(player.advanceAfterLoops) && player.advanceAfterLoops > 0 ? Math.floor(player.advanceAfterLoops) : 0;
@@ -249,10 +231,9 @@ export function fromManifest(raw: unknown, file: (path: string) => Blob | null):
 
     let trim: Trim | null = null;
     if (s.trim !== undefined) {
-      const t = s.trim as Record<string, unknown> | null;
-      if (t && isNum(t.start) && isNum(t.end) && t.start >= 0 && t.start < t.end && t.end <= s.duration + 0.001) {
-        trim = normTrim({ start: t.start, end: t.end }, s.duration);
-      } else notes.push(`${label}的 trim 不對,改成整段。`);
+      const t = readTrim(s.trim, s.duration);
+      if (t) trim = normTrim(t, s.duration);
+      else notes.push(`${label}的 trim 不對,改成整段。`);
     }
     project.steps.push({
       id,

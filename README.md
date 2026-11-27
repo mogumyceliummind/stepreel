@@ -8,7 +8,18 @@
 
 不必安裝,錄製與轉檔都在瀏覽器裡做。支援桌機的 Chrome、Edge。
 
-> 開發中。目前只有 M1 格式實測頁:錄一段,比較各格式的大小與畫質。
+> 開發中。目前有錄製頁(首頁)、播放元件與試播頁(`player.html`);單一 MP4 與動圖匯出還沒做。
+
+## 播放元件
+
+把匯出的 zip 解壓後的資料夾放上網站,再放 `npm run build` 產生的 `dist/step-reel.js`:
+
+```html
+<script type="module" src="step-reel.js"></script>
+<step-reel src="tutorial/manifest.json"></step-reel>
+```
+
+`advance-after-loops="2"` 可以覆寫套件的「播完幾次自動到下一步」(`0` 不自動前進)。其他屬性、事件與樣式見 `docs/decisions/D-0015-播放元件的介面與修剪播放.md`。
 
 ## 本機執行
 
@@ -19,7 +30,7 @@ npm install
 npm run dev
 ```
 
-用 Chrome 或 Edge 開 `http://localhost:5173`。型別檢查加建置用 `npm run check`。
+用 Chrome 或 Edge 開 `http://localhost:5173`(錄製頁)、`http://localhost:5173/player.html`(試播頁)。型別檢查加建置用 `npm run check`。
 
 ## 開發文件
 
