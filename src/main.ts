@@ -1,7 +1,7 @@
 // M1 格式實測頁(D-0008 第 7 點)。正式的錄製頁之後在這個基礎上做。
 
 import './style.css';
-import { Recorder, evenRect, pickScreen, recorderSupport, type Rect } from './capture';
+import { Recorder, evenRect, pickScreen, recorderSupport, setFrameRate, type Rect } from './capture';
 import { encodeGif, encodeVideo, encodeWebp, probe, type QualityName, type Result, type VideoInfo } from './convert';
 
 const $ = <T extends HTMLElement>(id: string) => {
@@ -15,6 +15,8 @@ const recBtn = $<HTMLButtonElement>('rec');
 const recState = $('rec-state');
 const mimeSel = $<HTMLSelectElement>('mime');
 const bitrateSel = $<HTMLSelectElement>('bitrate');
+const recFpsSel = $<HTMLSelectElement>('rec-fps');
+const recScaleSel = $<HTMLSelectElement>('rec-scale');
 const stage = $('stage');
 const preview = $<HTMLVideoElement>('preview');
 const cropBox = $('crop-box');
@@ -70,7 +72,7 @@ function showCrop() {
 pickBtn.onclick = async () => {
   try {
     stream?.getTracks().forEach((t) => t.stop());
-    stream = await pickScreen();
+    stream = await pickScreen(Number(recFpsSel.value));
     crop = null;
     preview.srcObject = stream;
     await preview.play();
@@ -123,6 +125,8 @@ const recorder = new Recorder();
 let timer = 0;
 
 let stopping = false;
+/** 這一段開始錄影時的設定(錄影中改選單不影響這一段) */
+let recSettings = { bitrate: 0, fps: 30, scale: 1 };
 
 async function stopRecording() {
   if (stopping) return;
@@ -136,7 +140,8 @@ async function stopRecording() {
     recBtn.textContent = '開始錄影';
   }
   recState.textContent = `錄好了:${rec.mimeType},${fmtBytes(rec.blob.size)},約 ${rec.wallSeconds.toFixed(1)} 秒`;
-  await setSource(rec.blob, `錄影(${rec.mimeType},${Number(bitrateSel.value) / 1e6} Mbps)`);
+  const s = recSettings;
+  await setSource(rec.blob, `錄影(${rec.mimeType},${s.bitrate / 1e6} Mbps,${s.fps} fps,放大 ${s.scale}×)`, s.scale);
 }
 
 recBtn.onclick = async () => {
@@ -145,8 +150,13 @@ recBtn.onclick = async () => {
   if (!track) return;
   const { w, h } = videoSize();
   const area = crop ?? evenRect({ x: 0, y: 0, width: w, height: h }, w, h);
+  recSettings = { bitrate: Number(bitrateSel.value), fps: Number(recFpsSel.value), scale: Number(recScaleSel.value) };
+  await setFrameRate(track, recSettings.fps);
+  // 記錄實際套用的上限(瀏覽器可能不接受或調整),標籤與 Markdown 才不會寫錯
+  const applied = track.getSettings().frameRate;
+  if (applied) recSettings.fps = Math.round(applied);
   try {
-    recorder.start(track, area, mimeSel.value, Number(bitrateSel.value));
+    recorder.start(track, area, mimeSel.value, recSettings.bitrate, recSettings.scale);
   } catch (e) {
     recState.textContent = `無法開始錄影:${e instanceof Error ? e.message : e}`;
     return;
@@ -160,21 +170,22 @@ recBtn.onclick = async () => {
 
 // ---- 來源 ----
 
-let source: { blob: Blob; label: string; info: VideoInfo } | null = null;
+/** `scale`:錄製放大倍數;選檔案時是 1 */
+let source: { blob: Blob; label: string; info: VideoInfo; scale: number } | null = null;
 let lastResults: Result[] = [];
 
 fileInput.onchange = () => {
   const f = fileInput.files?.[0];
-  if (f) void setSource(f, `檔案(${f.type || '未知格式'})`);
+  if (f) void setSource(f, `檔案(${f.type || '未知格式'})`, 1);
 };
 
-async function setSource(blob: Blob, label: string) {
+async function setSource(blob: Blob, label: string, scale: number) {
   sourceInfo.textContent = '讀取中…';
   convertSec.hidden = false;
   try {
     const info = await probe(blob);
-    source = { blob, label, info };
-    sourceInfo.textContent = `來源:${label},${info.width}×${info.height},${info.duration.toFixed(2)} 秒,${info.frames} 格,編碼 ${info.codec ?? '未知'},${fmtBytes(blob.size)}`;
+    source = { blob, label, info, scale };
+    sourceInfo.textContent = `來源:${label},${info.width}×${info.height},${info.duration.toFixed(2)} 秒,${info.frames} 格(平均 ${avgFps(info)} fps),編碼 ${info.codec ?? '未知'},${fmtBytes(blob.size)}`;
     runBtn.disabled = false;
   } catch (e) {
     source = null;
@@ -187,7 +198,7 @@ async function setSource(blob: Blob, label: string) {
 
 runBtn.onclick = async () => {
   if (!source) return;
-  const { blob, label, info } = source;
+  const { blob, label, info, scale: recScale } = source;
   const quality = $<HTMLSelectElement>('quality').value as QualityName;
   const fps = Number($<HTMLSelectElement>('fps').value);
   const scale = Number($<HTMLSelectElement>('scale').value);
@@ -199,7 +210,9 @@ runBtn.onclick = async () => {
   results.innerHTML = '';
   lastResults = [];
   const original: Result = { label: `原始錄影:${label}`, blob, width: info.width, height: info.height };
-  addResult(original, info.duration);
+  addResult(original, info.duration, recScale);
+  // 動圖縮放以原尺寸(放大前)為 100%
+  const gifScale = scale / recScale;
 
   const jobs: [string, () => Promise<Result>][] = [
     [`MP4 H.264(畫質${qName})`, () => encodeVideo(blob, `MP4 H.264(畫質${qName})`, 'avc', 'mp4', quality)],
@@ -207,22 +220,24 @@ runBtn.onclick = async () => {
     [`WebM AV1(畫質${qName})`, () => encodeVideo(blob, `WebM AV1(畫質${qName})`, 'av1', 'webm', quality)],
     [
       `動態 WebP(${fps} fps,${scale * 100}%,品質 ${webpQ * 100})`,
-      () => encodeWebp(blob, `動態 WebP(${fps} fps,${scale * 100}%,品質 ${webpQ * 100})`, fps, scale, webpQ),
+      () => encodeWebp(blob, `動態 WebP(${fps} fps,${scale * 100}%,品質 ${webpQ * 100})`, fps, gifScale, webpQ),
     ],
-    [`GIF(${fps} fps,${scale * 100}%)`, () => encodeGif(blob, `GIF(${fps} fps,${scale * 100}%)`, fps, scale)],
+    [`GIF(${fps} fps,${scale * 100}%)`, () => encodeGif(blob, `GIF(${fps} fps,${scale * 100}%)`, fps, gifScale)],
   ];
   for (const [name, job] of jobs) {
     runState.textContent = `轉檔中:${name}…`;
-    addResult(await job(), info.duration);
+    const r = await job();
+    addResult(r, info.duration, r.blob?.type.startsWith('image/') ? 1 : recScale);
   }
   runState.textContent = '完成';
   runBtn.disabled = false;
   copyBtn.disabled = false;
-  md.textContent = toMarkdown(info, { quality: qName, fps, scale, webpQ });
+  md.textContent = toMarkdown(info, { quality: qName, fps, scale, webpQ, recScale });
   md.hidden = false;
 };
 
-function addResult(r: Result, duration: number) {
+/** `shrink`:顯示時縮小的倍數(錄製放大 2× 的影片縮回原尺寸看) */
+function addResult(r: Result, duration: number, shrink: number) {
   lastResults.push(r);
   const card = document.createElement('article');
   card.className = 'result';
@@ -239,6 +254,7 @@ function addResult(r: Result, duration: number) {
     const media = r.blob.type.startsWith('image/') ? document.createElement('img') : document.createElement('video');
     if (media instanceof HTMLVideoElement) Object.assign(media, { muted: true, loop: true, autoplay: true, playsInline: true });
     media.src = url;
+    if (shrink > 1 && r.width) media.style.width = `${r.width / shrink}px`;
     const p = document.createElement('p');
     p.textContent = [
       fmtBytes(r.blob.size),
@@ -269,7 +285,10 @@ copyBtn.onclick = async () => {
   setTimeout(() => (copyBtn.textContent = '複製結果(Markdown)'), 1500);
 };
 
-function toMarkdown(info: VideoInfo, opt: { quality: string; fps: number; scale: number; webpQ: number }): string {
+function toMarkdown(
+  info: VideoInfo,
+  opt: { quality: string; fps: number; scale: number; webpQ: number; recScale: number },
+): string {
   const original = lastResults[0]?.blob?.size ?? 0;
   const rows = lastResults.map((r) => {
     if (!r.blob) return `| ${r.label} | — | — | — | — | ${r.error ?? ''} |`;
@@ -278,7 +297,7 @@ function toMarkdown(info: VideoInfo, opt: { quality: string; fps: number; scale:
   });
   return [
     `- 瀏覽器:${navigator.userAgent}`,
-    `- 來源:${info.width}×${info.height},${info.duration.toFixed(2)} 秒,${info.frames} 格`,
+    `- 來源:${info.width}×${info.height}(錄製放大 ${opt.recScale}×),${info.duration.toFixed(2)} 秒,${info.frames} 格,平均 ${avgFps(info)} fps`,
     `- 設定:影片畫質${opt.quality};動圖 ${opt.fps} fps、縮放 ${opt.scale * 100}%;WebP 品質 ${opt.webpQ * 100}`,
     `- MediaRecorder 支援:${support.filter((s) => s.supported).map((s) => '`' + s.type + '`').join('、') || '無'}`,
     '',
@@ -286,6 +305,10 @@ function toMarkdown(info: VideoInfo, opt: { quality: string; fps: number; scale:
     '|---|---|---|---|---|---|',
     ...rows,
   ].join('\n');
+}
+
+function avgFps(info: VideoInfo): string {
+  return (info.frames / Math.max(info.duration, 0.001)).toFixed(1);
 }
 
 function fmtBytes(n: number): string {

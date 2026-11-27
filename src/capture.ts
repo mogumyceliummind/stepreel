@@ -8,11 +8,24 @@ export interface Rect {
 }
 
 /** 選分頁、視窗或整個螢幕。不收音(影片是無聲的,D-0008 第 3 點)。 */
-export async function pickScreen(): Promise<MediaStream> {
+export async function pickScreen(frameRate: number): Promise<MediaStream> {
   return navigator.mediaDevices.getDisplayMedia({
-    video: { frameRate: { ideal: 30 } },
+    video: { frameRate: { ideal: frameRate } },
     audio: false,
   });
+}
+
+/**
+ * 改變來源的格率上限。螢幕分享只在畫面有變動時送新格,畫面靜止時實際格率會低很多。
+ * 失敗時(瀏覽器不接受)維持原本的格率,回傳 false。
+ */
+export async function setFrameRate(track: MediaStreamVideoTrack, frameRate: number): Promise<boolean> {
+  try {
+    await track.applyConstraints({ frameRate: { ideal: frameRate, max: frameRate } });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** H.264 等編碼器要求寬高與位移是偶數;框選範圍往內取偶數,並限制在畫面內。 */
@@ -50,18 +63,25 @@ export function recorderSupport(): { type: string; supported: boolean }[] {
  * 用 MediaStreamTrackProcessor 逐格讀取,而不是 requestAnimationFrame 畫 canvas:
  * 錄別的視窗時本頁常在背景,rAF 會被瀏覽器降頻或暫停,錄出來會掉格。
  */
-export function croppedTrack(source: MediaStreamVideoTrack, crop: Rect): { track: MediaStreamTrack; stop: () => void } {
+export function croppedTrack(
+  source: MediaStreamVideoTrack,
+  crop: Rect,
+  scale = 1,
+): { track: MediaStreamTrack; stop: () => void } {
   const processor = new MediaStreamTrackProcessor({ track: source });
   const generator = new MediaStreamTrackGenerator({ kind: 'video' });
-  const canvas = new OffscreenCanvas(crop.width, crop.height);
+  const canvas = new OffscreenCanvas(crop.width * scale, crop.height * scale);
   const ctx = canvas.getContext('2d', { alpha: false });
   if (!ctx) throw new Error('無法建立 2D canvas');
+  // 放大時每個像素直接複製成 scale×scale,不內插:目的是讓影片的 4:2:0 色度取樣
+  // 落在放大後的格子上,縮回原尺寸看時顏色接近完整解析度
+  ctx.imageSmoothingEnabled = false;
 
   const abort = new AbortController();
   const transform = new TransformStream<VideoFrame, VideoFrame>({
     transform(frame, controller) {
       try {
-        ctx.drawImage(frame, crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height);
+        ctx.drawImage(frame, crop.x, crop.y, crop.width, crop.height, 0, 0, canvas.width, canvas.height);
         controller.enqueue(new VideoFrame(canvas, { timestamp: frame.timestamp }));
       } finally {
         frame.close();
@@ -109,9 +129,10 @@ export class Recorder {
     return this.done;
   }
 
-  start(source: MediaStreamVideoTrack, crop: Rect, mimeType: string, bitsPerSecond: number): void {
+  /** `scale`:錄製放大倍數(1 或 2) */
+  start(source: MediaStreamVideoTrack, crop: Rect, mimeType: string, bitsPerSecond: number, scale = 1): void {
     if (this.recorder) throw new Error('已經在錄影');
-    const { track, stop } = croppedTrack(source, crop);
+    const { track, stop } = croppedTrack(source, crop, scale);
     let recorder: MediaRecorder;
     try {
       recorder = new MediaRecorder(new MediaStream([track]), { mimeType, videoBitsPerSecond: bitsPerSecond });

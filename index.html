@@ -21,10 +21,18 @@
           <option value="6000000" selected>6 Mbps</option>
           <option value="12000000">12 Mbps</option>
         </select></label>
+        <label>錄製格率 <select id="rec-fps">
+          <option value="30" selected>30 fps</option>
+          <option value="60">60 fps</option>
+        </select></label>
+        <label>錄製放大 <select id="rec-scale">
+          <option value="1" selected>1×</option>
+          <option value="2">2×(顏色、銳利度較好)</option>
+        </select></label>
         <button id="rec" disabled>開始錄影</button>
         <span id="rec-state"></span>
       </div>
-      <p class="hint">選好畫面後在下方預覽上拖拉框選範圍;不框選就錄整個畫面。</p>
+      <p class="hint">選好畫面後在下方預覽上拖拉框選範圍;不框選就錄整個畫面。錄製放大 2× 時影片存成兩倍尺寸,結果區縮回原尺寸顯示;動圖縮放以原尺寸為 100%。</p>
       <div id="stage" hidden>
         <video id="preview" muted playsinline></video>
         <div id="crop-box" hidden></div>
@@ -51,6 +59,7 @@
           <option value="10">10 fps</option>
           <option value="15" selected>15 fps</option>
           <option value="24">24 fps</option>
+          <option value="30">30 fps</option>
         </select></label>
         <label>動圖縮放 <select id="scale">
           <option value="1" selected>100%</option>
