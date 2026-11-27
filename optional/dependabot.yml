@@ -1,6 +1,6 @@
 # Dependabot 版本更新。
 # 漏洞警示與安全更新在 repo 設定開啟,不受這裡的 cooldown 影響:有修正版就立刻開 PR。
-# 版本更新:每週一次;新版本發布後等一段時間才開 PR(A6),次版號與修訂版號合併成一個 PR。
+# 版本更新:每週一次;新版本發布後等一段時間才開 PR,次版號與修訂版號合併成一個 PR。
 version: 2
 
 updates:
@@ -17,10 +17,6 @@ updates:
       frontend-minor-patch:
         applies-to: version-updates
         update-types: [minor, patch]
-    ignore:
-      # 前端固定 TypeScript ~6.0:typescript-eslint 尚未支援 7(CONVENTIONS.md 踩過的坑)
-      - dependency-name: typescript
-        versions: ['>= 7.0.0']
     commit-message:
       prefix: chore(deps)
 
@@ -48,7 +44,7 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      # 主版號也合併成一個 PR:各 action 分開升級時,相鄰行會互相衝突(PR #13 ~ #15)
+      # 主版號也合併成一個 PR:各 action 分開升級時,workflow 檔裡相鄰的行會互相衝突
       actions:
         applies-to: version-updates
         update-types: [major, minor, patch]

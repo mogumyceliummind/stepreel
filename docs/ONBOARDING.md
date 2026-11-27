@@ -8,7 +8,7 @@
 |---|---|
 | repo `mogumyceliummind/stepreel` 已建立,**公開** | GitHub |
 | 成員基本權限設為 Write | Organization > Settings > Member privileges |
-| 主分支保護:必須經 PR、禁止刪除與 force push | repo > Settings > Rules > Rulesets。**免費方案的 private repo 只能建立、不會強制執行**;怎麼處理見 `STATUS.md` Q-3 |
+| 主分支保護:必須經 PR、禁止刪除與 force push | repo > Settings > Rules > Rulesets。本 repo 是公開的,免費方案也會強制執行;見 `docs/PENDING.md` Q-3 |
 | PR 合併後自動刪除遠端分支 | repo > Settings > General > Pull Requests > **Automatically delete head branches** |
 
 ## 2. 新成員加入
