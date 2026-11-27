@@ -36,7 +36,8 @@ Claude 只接受該範圍負責人的拍板;其他人的意見記為「提案」
 | 層 | 選擇 | 決策 |
 |---|---|---|
 | 錄製 | `getDisplayMedia`、`MediaRecorder` | D-0008 |
-| 轉檔 | WebCodecs + 封裝函式庫;GIF 小型編碼器(函式庫待審查) | D-0008 |
+| 建置、語言 | Vite、TypeScript,不用框架 | D-0010 |
+| 轉檔 | WebCodecs + mediabunny;GIF 用 gifenc;動態 WebP 原生編碼加自己封裝 | D-0008、D-0010 |
 | 部署 | GitHub Pages | D-0008 |
 
 ## 6. 環境

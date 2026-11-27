@@ -23,3 +23,10 @@ desktop.ini
 tmp/
 temp/
 
+
+# 建置與依賴
+node_modules/
+dist/
+
+# 實測用的錄影樣本不進 git(repo 是公開的,CLAUDE.md §8)
+samples/

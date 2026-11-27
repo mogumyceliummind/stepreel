@@ -1,0 +1,23 @@
+{
+  "name": "stepreel",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit && vite build"
+  },
+  "dependencies": {
+    "gifenc": "^1.0.3",
+    "mediabunny": "^1.66.5"
+  },
+  "devDependencies": {
+    "@types/dom-mediacapture-transform": "^0.1.12",
+    "@types/dom-webcodecs": "^0.1.13",
+    "typescript": "^7.0.2",
+    "vite": "^8.4.0"
+  }
+}
