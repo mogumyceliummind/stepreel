@@ -184,12 +184,24 @@ async function* sampleFrames(blob: Blob, fps: number, scale: number): AsyncGener
   }
 }
 
+/**
+ * 第 from 格到第 to 格(不含)的長度,以 unit 毫秒為單位。
+ * 從累計時間換算而不是每格各自進位:GIF 只能記到 10 毫秒,15 fps 每格 66.7 毫秒
+ * 各自進位成 70 毫秒,45 秒的錄影會慢將近 1 秒。
+ */
+function spanMs(from: number, to: number, step: number, unit: number): number {
+  return Math.max(unit, (Math.round((to * step) / unit) - Math.round((from * step) / unit)) * unit);
+}
+
 /** 動態 WebP:每格只編碼變動的範圍,相同的格合併成較長的一格。 */
 export async function encodeWebp(blob: Blob, label: string, fps: number, scale: number, quality: number): Promise<Result> {
   const t0 = performance.now();
   try {
     const step = 1000 / fps;
     const frames: WebpFrame[] = [];
+    /** 每個輸出格從第幾個取樣格開始 */
+    const starts: number[] = [];
+    let sampled = 0;
     let size = { width: 0, height: 0 };
     const full = new OffscreenCanvas(1, 1);
     const fullCtx = full.getContext('2d', { alpha: false });
@@ -197,11 +209,8 @@ export async function encodeWebp(blob: Blob, label: string, fps: number, scale: 
 
     for await (const f of sampleFrames(blob, fps, scale)) {
       size = { width: f.width, height: f.height };
-      const last = frames.at(-1);
-      if (!f.dirty && last) {
-        last.duration += step;
-        continue;
-      }
+      const index = sampled++;
+      if (!f.dirty && frames.length > 0) continue;
       const r = f.dirty ?? { x: 0, y: 0, width: f.width, height: f.height };
       const part = new OffscreenCanvas(r.width, r.height);
       const partCtx = part.getContext('2d', { alpha: false });
@@ -209,9 +218,11 @@ export async function encodeWebp(blob: Blob, label: string, fps: number, scale: 
       partCtx.putImageData(f.image, -r.x, -r.y, r.x, r.y, r.width, r.height);
       const out = await part.convertToBlob({ type: 'image/webp', quality });
       if (out.type !== 'image/webp') return { label, error: '這個瀏覽器不能編碼 WebP' };
-      frames.push({ image: new Uint8Array(await out.arrayBuffer()), ...r, duration: step });
+      frames.push({ image: new Uint8Array(await out.arrayBuffer()), ...r, duration: 0 });
+      starts.push(index);
     }
     if (frames.length === 0) throw new Error('沒有任何畫面');
+    frames.forEach((fr, i) => (fr.duration = spanMs(starts[i], starts[i + 1] ?? sampled, step, 1)));
     const bytes = muxAnimatedWebp(size.width, size.height, frames);
     return {
       label,
@@ -235,25 +246,26 @@ export async function encodeGif(blob: Blob, label: string, fps: number, scale: n
     const step = 1000 / fps;
     const gif = GIFEncoder();
     let size = { width: 0, height: 0 };
-    let pending: { index: Uint8Array; palette: number[][]; duration: number } | null = null;
+    let pending: { index: Uint8Array; palette: number[][]; start: number } | null = null;
+    let sampled = 0;
     let written = 0;
-    const flush = () => {
+    /** 寫出暫存的格,長度到第 end 個取樣格為止 */
+    const flush = (end: number) => {
       if (!pending) return;
-      gif.writeFrame(pending.index, size.width, size.height, { palette: pending.palette, delay: pending.duration });
+      const delay = spanMs(pending.start, end, step, 10);
+      gif.writeFrame(pending.index, size.width, size.height, { palette: pending.palette, delay });
       written++;
     };
 
     for await (const f of sampleFrames(blob, fps, scale)) {
       size = { width: f.width, height: f.height };
-      if (!f.dirty && pending) {
-        pending.duration += step;
-        continue;
-      }
-      flush();
+      const index = sampled++;
+      if (!f.dirty && pending) continue;
+      flush(index);
       const palette = quantize(f.image.data, 256, { format: 'rgb565' });
-      pending = { index: applyPalette(f.image.data, palette, 'rgb565'), palette, duration: step };
+      pending = { index: applyPalette(f.image.data, palette, 'rgb565'), palette, start: index };
     }
-    flush();
+    flush(sampled);
     if (written === 0) throw new Error('沒有任何畫面');
     gif.finish();
     return {
